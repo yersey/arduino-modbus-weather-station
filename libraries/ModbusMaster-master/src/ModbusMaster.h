@@ -217,6 +217,10 @@ class ModbusMaster
     uint8_t  readWriteMultipleRegisters(uint16_t, uint16_t, uint16_t, uint16_t);
     uint8_t  readWriteMultipleRegisters(uint16_t, uint16_t);
     
+    // Modbus timeout [milliseconds]
+    //static const uint16_t ku16MBResponseTimeout          = 2000; ///< Modbus timeout [milliseconds]
+    uint16_t ku16MBResponseTimeout          = 300; ///< Modbus timeout [milliseconds]
+    
   private:
     Stream* _serial;                                             ///< reference to serial port object
     uint8_t  _u8MBSlave;                                         ///< Modbus slave (1..255) initialized in begin()
@@ -248,8 +252,7 @@ class ModbusMaster
     static const uint8_t ku8MBMaskWriteRegister          = 0x16; ///< Modbus function 0x16 Mask Write Register
     static const uint8_t ku8MBReadWriteMultipleRegisters = 0x17; ///< Modbus function 0x17 Read Write Multiple Registers
     
-    // Modbus timeout [milliseconds]
-    static const uint16_t ku16MBResponseTimeout          = 2000; ///< Modbus timeout [milliseconds]
+    
     
     // master function that conducts Modbus transactions
     uint8_t ModbusMasterTransaction(uint8_t u8MBFunction);
