@@ -1,19 +1,19 @@
 #include <ModbusRtu.h>
 #include "DHT.h"
+
+#define SLAVE_ID 1
 #define DHT11_PIN 3
+#define HUM_REG 0
 
 // registers in the slave
 uint16_t au16data[16] = {
-  63000, 63000, 63000, 7777, 2, 7182, 28182, 8, 0, 0, 0, 0, 0, 0, 1, -1 };
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
 
-Modbus slave(10,0,5); // this is slave @1 and RS-232 or USB-FTDI
-//10
+Modbus slave(SLAVE_ID, 0, 5);
 DHT dht;
 
-int lol = 0;
-int wilgotnosc = 0;
-int temperatura = 0;
-int czas = millis();
+int humidity = 0;
+int getHumTime = millis();
 
 void setup() {
   dht.setup(DHT11_PIN);
@@ -22,16 +22,13 @@ void setup() {
 
 void loop() {
 
-  wilgotnosc = dht.getHumidity();
-  temperatura = dht.getTemperature();
-  
-  if (dht.getStatusString() == "OK" && dht.getMinimumSamplingPeriod()<=(millis()-czas)) 
-  {
-    czas = millis();
-    au16data[0] = temperatura;
-    au16data[1] = wilgotnosc;
+  if(dht.getMinimumSamplingPeriod() <= millis()-getHumTime){
+    humidity = dht.getHumidity();
+    getHumTime = millis();
   }
-    
-    slave.poll( au16data, 16 );
-    //delay(200);
+
+  if(dht.getStatusString() == "OK")
+    au16data[HUM_REG] = humidity;
+
+  slave.poll( au16data, 16 );
 }
