@@ -220,6 +220,8 @@ class ModbusMaster
     // Modbus timeout [milliseconds]
     //static const uint16_t ku16MBResponseTimeout          = 2000; ///< Modbus timeout [milliseconds]
     uint16_t ku16MBResponseTimeout          = 300; ///< Modbus timeout [milliseconds]
+    uint8_t result = 0x03;  //qwerty
+    int responseTimeoutCount = 0;  //qwerty
     
   private:
     Stream* _serial;                                             ///< reference to serial port object
