@@ -3,6 +3,8 @@
 #include <SFE_BMP180.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 
 #define ALTITUDE 193.0
 #define SLAVE_ID 1
@@ -14,8 +16,8 @@
 #define PRES_REG 2
 #define SUN_REG 3
 
-uint16_t au16data[16] = {
-  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+uint16_t au16data[9] = {
+  111, 1, 2, 3, 2018, 11, 16, 12, 56};
 
 Modbus slave(SLAVE_ID, 0, 5);
 DHT dht;
@@ -23,20 +25,25 @@ SFE_BMP180 pressure;
 OneWire oneWire(DS_PIN);
 DallasTemperature sensors(&oneWire);
 DeviceAddress ds18b20 = { 0x28, 0x90, 0x63, 0x45, 0x92, 0x06, 0x02, 0xE0 };
+LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
 
 int humidity = 0;
-int getHumTime = 0;
-float pressure_ = 0;
-float temperature = 0;
-int getTempTime = 0;
-int sun = 0;
+unsigned long getHumTime = 0;
+int pressure_ = 0;
+int temperature = 0;
+unsigned long getTempTime = 0;
+unsigned long lastUpdate = 0;
+unsigned long pageTime = 0;
+byte sun = 0;
+bool page = 0;
 
 void setup() {
   dht.setup(DHT11_PIN);
-  Serial.begin( 9600 );
+  //Serial.begin( 9600 );
   pressure.begin();
   sensors.begin();
   slave.begin( 9600 ); // baud-rate at 9600
+  lcd.begin(16,2); 
 }
 
 void loop() {
@@ -50,12 +57,12 @@ void loop() {
 
   temperature = readTemp(); 
   if(temperature != NULL)
-    au16data[TEMP_REG] = temperature*10;
+    au16data[TEMP_REG] = temperature;
 
   sun = readSun();
   if(sun != NULL)
     au16data[SUN_REG] = sun;
-
+/*
   Serial.print(au16data[HUM_REG]);
   Serial.print("  ");
   Serial.print(au16data[PRES_REG]);
@@ -63,8 +70,40 @@ void loop() {
   Serial.print(au16data[TEMP_REG]);
   Serial.print("  ");
   Serial.println(au16data[SUN_REG]);
+*/
+  slave.poll(au16data, 16);
+  
+  if(page == 0){
+    if(millis()-lastUpdate >= 1500UL)
+    {
+      lcd.clear();
+      printTime();
+      lcd.setCursor(0, 1);
+      printPage0();
+      lastUpdate = millis();
+    }
+  }
 
-  //slave.poll( au16data, 16 );
+  else if(page == 1){
+    if(millis()-lastUpdate >= 1500UL)
+    {
+      lcd.clear();
+      printTime();
+      lcd.setCursor(0, 1);
+      printPage1();
+      lastUpdate = millis();
+    }
+  }
+
+  if(millis()-pageTime >= 1550UL && page == 1){
+    page = 0;
+    pageTime = millis();
+  }
+  if(millis()-pageTime >= 4550UL && page == 0){
+    page = 1;
+    pageTime = millis();
+  }
+  
 }
 
 int readHumidity(){
@@ -74,7 +113,7 @@ int readHumidity(){
   }
 }
 
-float readPressure(){
+int readPressure(){
   
   char status;
   double T,P,p0,a;
@@ -101,15 +140,48 @@ float readPressure(){
   }
 }
 
-float readTemp(){
-  if(millis()-getTempTime >= 1000){
+int readTemp(){
+  if(millis()-getTempTime >= 1000UL){
     sensors.requestTemperatures();
     getTempTime = millis();
-    return sensors.getTempC(ds18b20);
+    return sensors.getTempC(ds18b20)*10;
   }
   else return temperature;
 }
 
-int readSun(){
+byte readSun(){
   return map(analogRead(SUN_PIN), 0, 1023, 0, 100);
+}
+
+void printTime(){
+    lcd.print(au16data[7]);
+    lcd.print(":");
+    lcd.print(au16data[8]);
+    lcd.print(" ");
+    lcd.print(au16data[6]);
+    lcd.print(".");
+    lcd.print(au16data[5]);
+    lcd.print(".");
+    lcd.print(au16data[4]);
+}
+
+void printPage0(){
+    lcd.print(" T:");
+    lcd.print(au16data[TEMP_REG]/10);
+    lcd.print(".");
+    lcd.print(au16data[TEMP_REG]-au16data[TEMP_REG]/10*10);
+    lcd.print("*C");
+    lcd.print(" ");
+    lcd.print("W:");
+    lcd.print(au16data[HUM_REG]);
+    lcd.print("%");
+}
+
+void printPage1(){
+    lcd.print(au16data[PRES_REG]);
+    lcd.print("hPa");
+    lcd.print(" ");
+    lcd.print("sun:");
+    lcd.print(au16data[SUN_REG]);
+    lcd.print("%");  
 }
