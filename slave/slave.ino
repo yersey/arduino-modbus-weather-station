@@ -8,6 +8,8 @@
 
 #define ALTITUDE 193.0
 #define SLAVE_ID 1
+#define BUTTON_PIN 7
+#define RS_PIN 5
 #define DS_PIN 10
 #define DHT11_PIN 3
 #define SUN_PIN A1
@@ -19,7 +21,7 @@
 uint16_t au16data[9] = {
   111, 1, 2, 3, 2018, 11, 16, 12, 56};
 
-Modbus slave(SLAVE_ID, 0, 5);
+Modbus slave(SLAVE_ID, 0, RS_PIN);
 DHT dht;
 SFE_BMP180 pressure;
 OneWire oneWire(DS_PIN);
@@ -33,9 +35,11 @@ int pressure_ = 0;
 int temperature = 0;
 unsigned long getTempTime = 0;
 unsigned long lastUpdate = 0;
-unsigned long pageTime = 0;
+unsigned long buttonTime = 0;
+int buttonHoldTime = 0;
 byte sun = 0;
 bool page = 0;
+bool lcdLight = true;
 
 void setup() {
   dht.setup(DHT11_PIN);
@@ -44,6 +48,7 @@ void setup() {
   sensors.begin();
   slave.begin( 9600 ); // baud-rate at 9600
   lcd.begin(16,2); 
+  pinMode(BUTTON_PIN, INPUT);
 }
 
 void loop() {
@@ -62,15 +67,7 @@ void loop() {
   sun = readSun();
   if(sun != NULL)
     au16data[SUN_REG] = sun;
-/*
-  Serial.print(au16data[HUM_REG]);
-  Serial.print("  ");
-  Serial.print(au16data[PRES_REG]);
-  Serial.print("  ");
-  Serial.print(au16data[TEMP_REG]);
-  Serial.print("  ");
-  Serial.println(au16data[SUN_REG]);
-*/
+    
   slave.poll(au16data, 16);
   
   if(page == 0){
@@ -94,16 +91,30 @@ void loop() {
       lastUpdate = millis();
     }
   }
-
-  if(millis()-pageTime >= 1550UL && page == 1){
-    page = 0;
-    pageTime = millis();
-  }
-  if(millis()-pageTime >= 4550UL && page == 0){
-    page = 1;
-    pageTime = millis();
-  }
   
+  if(digitalRead(BUTTON_PIN) == HIGH){
+    if(buttonTime == 0) 
+      buttonTime = millis();
+      
+    buttonHoldTime += millis()-buttonTime;
+    buttonTime = millis();
+  }
+  else{
+    if(buttonHoldTime > 1000){
+      if(lcdLight == true)
+        lcdLight = false;
+      else lcdLight = true;
+    }
+
+    else if(buttonHoldTime < 500 && buttonHoldTime > 50)
+      if(page == 0)
+        page = 1;
+      else page = 0;
+      
+    buttonHoldTime = 0;  
+    buttonTime = 0;
+  }
+//////////////////////////////////////
 }
 
 int readHumidity(){
