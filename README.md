@@ -9,7 +9,7 @@ video:
 ## Slave circuit
 ![Slave](slave.png)
 
-## alarm_receiver circuit
+## Alarm receiver circuit
 ![Alarm receiver](alarm_receiver.png)
 
 ## Additional Boards Manager URLs
