@@ -42,9 +42,10 @@ int inputPos = 1;
 bool loadResult = false;
 bool toSave = false;
 
-int slave1[2] = {9999, 9999};
-int slave2[2] = {9999, 9999};
-int slave3[2] = {9999, 9999};
+int slave1[3] = {9999, 9999, 0};
+int slave2[3] = {9999, 9999, 0};
+int slave3[3] = {9999, 9999, 0};
+int temperature[3] = {9997, 9997, 9997};
 
 String request = "";
 
@@ -324,20 +325,24 @@ void loop(void) {
   struct tm* p_tm = localtime(&now);
   
    if(master_alarm > 0){
-    if((float(slave1[0]/10) < s1_minTemp && (s1_alarm > 0)) || (s1_timeout == true && (s1_alarm > 0)) )
+    if((float(temperature[0]/10) < s1_minTemp && (s1_alarm > 0)) || (s1_timeout == true && (s1_alarm > 0)) )
       mySwitch.send(101, 24);
-    else if((float(slave2[0]/10) < s2_minTemp && (s2_alarm > 0)) || (s2_timeout == true && (s2_alarm > 0)) )
+    else if((float(temperature[1]/10) < s2_minTemp && (s2_alarm > 0)) || (s2_timeout == true && (s2_alarm > 0)) )
       mySwitch.send(101, 24);
-    else if((float(slave3[0]/10) < s3_minTemp && (s3_alarm > 0)) || (s3_timeout == true && (s3_alarm > 0)) )
+    else if((float(temperature[2]/10) < s3_minTemp && (s3_alarm > 0)) || (s3_timeout == true && (s3_alarm > 0)) )
       mySwitch.send(101, 24);
      else mySwitch.send(100, 24);
   }
 
-  node1.result = node1.readHoldingRegisters(0, 2);
+  node1.result = node1.readHoldingRegisters(0, 3);
     if(node1.result == node1.ku8MBSuccess)
     {
         slave1[0] = node1.getResponseBuffer(0);
         slave1[1] = node1.getResponseBuffer(1);
+        slave1[2] = node1.getResponseBuffer(2);
+        if(slave1[2] > 0)
+          temperature[0] = slave1[0]*(-1);
+        else temperature[0] = slave1[0];
         node1.responseTimeoutCount = 0;
         
         node1.writeSingleRegister(4, p_tm->tm_year + 1900);
@@ -355,11 +360,15 @@ void loop(void) {
     else s1_timeout = false;
     delay(10);//musi tu byc maly delay, nie wiem dlaczego
 
-      node2.result = node2.readHoldingRegisters(0, 2);
+      node2.result = node2.readHoldingRegisters(0, 3);
     if(node2.result == node2.ku8MBSuccess)
     {
         slave2[0] = node2.getResponseBuffer(0);
         slave2[1] = node2.getResponseBuffer(1);
+        slave2[2] = node2.getResponseBuffer(2);
+        if(slave2[2] > 0)
+          temperature[1] = slave2[0]*(-1);
+        else temperature[1] = slave2[0];
         node2.responseTimeoutCount = 0;
         
         node2.writeSingleRegister(4, p_tm->tm_year + 1900);
@@ -377,11 +386,15 @@ void loop(void) {
     else s2_timeout = false;
     delay(10);//musi tu byc maly delay, nie wiem dlaczego
 
-      node3.result = node3.readHoldingRegisters(0, 2);
+      node3.result = node3.readHoldingRegisters(0, 3);
     if(node3.result == node3.ku8MBSuccess)
     {
         slave3[0] = node3.getResponseBuffer(0);
         slave3[1] = node3.getResponseBuffer(1);
+        slave3[2] = node3.getResponseBuffer(2);
+        if(slave3[2] > 0)
+          temperature[2] = slave3[0]*(-1);
+        else temperature[2] = slave3[0];
         node3.responseTimeoutCount = 0;
         
         node3.writeSingleRegister(4, p_tm->tm_year + 1900);
@@ -511,7 +524,11 @@ void loop(void) {
     u8g2.drawStr( 0, 35, "S1");
     u8g2.drawStr( 0, 46, "S2");
     u8g2.drawStr( 0, 57, "S3");
-       
+
+    if(slave1[2] > 0){
+      u8g2.setCursor( 12,35 );
+      u8g2.print("-");
+    }
     u8g2.setCursor( 17,35 );
     u8g2.print(slave1[0]/10);
     u8g2.print(".");
@@ -523,7 +540,11 @@ void loop(void) {
     else u8g2.drawXBMP( 63, 28, cross_width, cross_height, cross_bits);
     if(s1_timeout == true)
       u8g2.drawHLine(0, 31, 75);   
-      
+
+    if(slave2[2] > 0){
+      u8g2.setCursor( 12,46 );
+      u8g2.print("-");
+    }
     u8g2.setCursor( 17,46 );
     u8g2.print(slave2[0]/10);
     u8g2.print(".");
@@ -535,7 +556,11 @@ void loop(void) {
     else u8g2.drawXBMP( 63, 39, cross_width, cross_height, cross_bits);
     if(s2_timeout == true)
       u8g2.drawHLine(0, 42, 75);
-  
+
+    if(slave3[2] > 0){
+      u8g2.setCursor( 12,57 );
+      u8g2.print("-");
+    }
     u8g2.setCursor( 17,57 );
     u8g2.print(slave3[0]/10);
     u8g2.print(".");
@@ -915,22 +940,22 @@ void loop(void) {
      
 u8g2.sendBuffer();
 
-    if(millis()-tgUpdate >= 20000 && slave1[0] < 1000){
+    if(millis()-tgUpdate >= 20000){
       if (client.connect("api.thingspeak.com", 80)) {
         request = "GET /update?api_key="KEY_;
         
-        if(slave1[0] < 1000 && s1_timeout == false){
-          request += "&field1=" + String(float(slave1[0])/10);
+        if(temperature[0] < 1000 && s1_timeout == false){
+          request += "&field1=" + String(float(temperature[0])/10);
           request += "&field2=" + String(slave1[1]);
         }
 
-        if(slave2[0] < 1000 && s2_timeout == false){
-          request += "&field3=" + String(float(slave2[0])/10);
+        if(temperature[1] < 1000 && s2_timeout == false){
+          request += "&field3=" + String(float(temperature[1])/10);
           request += "&field4=" + String(slave2[1]);
         }
 
-        if(slave3[0] < 1000 && s3_timeout == false){
-        request += "&field5=" + String(float(slave3[0])/10);
+        if(temperature[2] < 1000 && s3_timeout == false){
+        request += "&field5=" + String(float(temperature[2])/10);
         request += "&field6=" + String(slave3[1]);
         }
         

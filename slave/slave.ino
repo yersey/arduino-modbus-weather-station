@@ -13,15 +13,14 @@
 #define SUN_REG 1
 
 uint16_t au16data[9] = {
-  9999, 9999, 2, 3, 2018, 11, 16, 8, 7};
+  9999, 9999, 0, 3, 2018, 11, 16, 8, 7};
 
 Modbus slave(SLAVE_ID, 0, RS_PIN);
 OneWire oneWire(DS_PIN);
 DallasTemperature sensors(&oneWire);
 //DeviceAddress ds18b20 = { 0x28, 0x90, 0x63, 0x45, 0x92, 0x06, 0x02, 0xE0 }; //1
 //DeviceAddress ds18b20 = { 0x28, 0x68, 0xA6, 0x45, 0x92, 0x03, 0x02, 0x3C }; //2
-  
-  DeviceAddress ds18b20 = { 0x28, 0x12, 0xC6, 0x45, 0x92, 0x08, 0x02, 0x59 }; //3
+DeviceAddress ds18b20 = { 0x28, 0x12, 0xC6, 0x45, 0x92, 0x08, 0x02, 0x59 }; //3
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
 
 int temperature = 9999;
@@ -41,8 +40,18 @@ void setup() {
 
 void loop() {
   temperature = readTemp(); 
-  if(temperature != NULL || temperature < 200)
-    au16data[TEMP_REG] = temperature;
+  if(temperature != NULL){
+    if(temperature < 0){
+      au16data[2] = 1;
+      au16data[TEMP_REG] = temperature*(-1);
+    } else if(temperature == 0){
+        au16data[2] = 0;
+        au16data[TEMP_REG] = 0;
+    }else {
+      au16data[2] = 0;
+      au16data[TEMP_REG] = temperature;
+    }
+  }
 
   sun = readSun();
   if(sun != NULL)
@@ -117,6 +126,8 @@ void printTime(){
 
 void printPage0(){
     lcd.print("T:");
+    if(au16data[2] > 0)
+      lcd.print("-");
     lcd.print(au16data[TEMP_REG]/10);
     lcd.print(".");
     lcd.print(au16data[TEMP_REG]-au16data[TEMP_REG]/10*10);
