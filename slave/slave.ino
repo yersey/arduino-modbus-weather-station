@@ -4,7 +4,7 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
-#define SLAVE_ID 3
+#define SLAVE_ID 1
 #define BUTTON_PIN 7
 #define RS_PIN 5
 #define DS_PIN 10
@@ -18,12 +18,12 @@ uint16_t au16data[9] = {
 Modbus slave(SLAVE_ID, 0, RS_PIN);
 OneWire oneWire(DS_PIN);
 DallasTemperature sensors(&oneWire);
-//DeviceAddress ds18b20 = { 0x28, 0x90, 0x63, 0x45, 0x92, 0x06, 0x02, 0xE0 }; //1
+DeviceAddress ds18b20 = { 0x28, 0x90, 0x63, 0x45, 0x92, 0x06, 0x02, 0xE0 }; //1
 //DeviceAddress ds18b20 = { 0x28, 0x68, 0xA6, 0x45, 0x92, 0x03, 0x02, 0x3C }; //2
-DeviceAddress ds18b20 = { 0x28, 0x12, 0xC6, 0x45, 0x92, 0x08, 0x02, 0x59 }; //3
+//DeviceAddress ds18b20 = { 0x28, 0x12, 0xC6, 0x45, 0x92, 0x08, 0x02, 0x59 }; //3
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
 
-int temperature = 9999;
+uint16_t temperature = 9999;
 unsigned long getTempTime = 0;
 unsigned long lastUpdate = 0;
 unsigned long buttonTime = 0;
@@ -41,16 +41,7 @@ void setup() {
 void loop() {
   temperature = readTemp(); 
   if(temperature != NULL){
-    if(temperature < 0){
-      au16data[2] = 1;
-      au16data[TEMP_REG] = temperature*(-1);
-    } else if(temperature == 0){
-        au16data[2] = 0;
-        au16data[TEMP_REG] = 0;
-    }else {
-      au16data[2] = 0;
-      au16data[TEMP_REG] = temperature;
-    }
+    au16data[TEMP_REG] = temperature;
   }
 
   sun = readSun();
@@ -126,11 +117,7 @@ void printTime(){
 
 void printPage0(){
     lcd.print("T:");
-    if(au16data[2] > 0)
-      lcd.print("-");
-    lcd.print(au16data[TEMP_REG]/10);
-    lcd.print(".");
-    lcd.print(au16data[TEMP_REG]-au16data[TEMP_REG]/10*10);
+    lcd.print(float((int16_t)au16data[TEMP_REG])/10, 1);
     lcd.print("*C");
     lcd.print(" ");
     lcd.print("SUN:");
