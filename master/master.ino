@@ -48,6 +48,8 @@ uint16_t slave3[2] = {9999, 9999};
 
 String request = "";
 
+bool syrena = false;
+
 int master_alarm = 0;
 
 bool s1_timeout = false;
@@ -325,13 +327,18 @@ void loop(void) {
   
    if(master_alarm > 0){
     if((float((int16_t)slave1[0]/10) < s1_minTemp && (s1_alarm > 0)) || (s1_timeout == true && (s1_alarm > 0)) )
-      mySwitch.send(101, 24);
+      syrena = true;
     else if((float((int16_t)slave2[0]/10) < s2_minTemp && (s2_alarm > 0)) || (s2_timeout == true && (s2_alarm > 0)) )
-      mySwitch.send(101, 24);
+      syrena = true;
     else if((float((int16_t)slave3[0]/10) < s3_minTemp && (s3_alarm > 0)) || (s3_timeout == true && (s3_alarm > 0)) )
+      syrena = true;
+    else syrena = false;
+  }else syrena = false;
+
+    if(syrena == true)
       mySwitch.send(101, 24);
-     else mySwitch.send(100, 24);
-  }
+    else
+      mySwitch.send(100, 24);
 
   node1.result = node1.readHoldingRegisters(0, 2);
     if(node1.result == node1.ku8MBSuccess)
@@ -496,6 +503,9 @@ void loop(void) {
     u8g2.print(p_tm->tm_year + 1900);  
     u8g2.setCursor(82, 63);
     u8g2.print(p_tm->tm_sec);
+    u8g2.print(" ");
+    if(syrena == true)
+      u8g2.print("ALARM");
        
     u8g2.drawHLine(0, 26, 75);
     u8g2.drawHLine(0, 37, 75);

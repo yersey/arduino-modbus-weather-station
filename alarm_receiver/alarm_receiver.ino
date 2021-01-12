@@ -3,7 +3,7 @@
 RCSwitch mySwitch = RCSwitch();
 
 bool alarm = false;
-int val = 0;;
+int val = 0;
 void setup() {
   Serial.begin(9600);
   mySwitch.enableReceive(0);
@@ -11,7 +11,8 @@ void setup() {
 }
 
 void loop() {
-  if (mySwitch.available()) {    
+  if (mySwitch.available()) {
+    Serial.println("myswitch available");
     val = mySwitch.getReceivedValue();
     if(val == 101)
       alarm = true;  
