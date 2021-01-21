@@ -45,6 +45,7 @@ bool toSave = false;
 uint16_t slave1[2] = {9999, 9999};
 uint16_t slave2[2] = {9999, 9999};
 uint16_t slave3[2] = {9999, 9999};
+uint16_t slave4[2] = {9999, 9999};
 
 String request = "";
 
@@ -64,6 +65,10 @@ bool s3_timeout = false;
 float s3_minTemp = 0;
 int s3_alarm = 0;
 
+bool s4_timeout = false;
+float s4_minTemp = 0;
+int s4_alarm = 0;
+
 char KEYS[] = {
   '1', '4', '7', '*',
   '2', '5', '8', '0',
@@ -79,6 +84,7 @@ WiFiClient  client;
 ModbusMaster node1;
 ModbusMaster node2;
 ModbusMaster node3;
+ModbusMaster node4;
 
 #define c_width 6
 #define c_height 10
@@ -226,6 +232,14 @@ void loadSettings(){
       dataFile.find("s3 min. temp.");
       dataFile.seek(dataFile.position()+1);
       s3_minTemp = dataFile.readStringUntil(';').toFloat();
+
+      dataFile.find("s4 alarm");
+      dataFile.seek(dataFile.position()+1);
+      s4_alarm = convertStrToInt(dataFile.readStringUntil(';'));
+  
+      dataFile.find("s4 min. temp.");
+      dataFile.seek(dataFile.position()+1);
+      s4_minTemp = dataFile.readStringUntil(';').toFloat();
       
       dataFile.close();
       loadResult = true;
@@ -234,7 +248,7 @@ void loadSettings(){
   else loadResult = false;
 }
 
-void SaveSettings(int alarm, int s11, float s12,int s21, float s22,int s31, float s32){
+void SaveSettings(int alarm, int s11, float s12,int s21, float s22,int s31, float s32, int s41, float s42){
   if(sdState){
     dataFile = SD.open("settings.txt", FILE_WRITE);  
     if (dataFile) {
@@ -273,6 +287,16 @@ void SaveSettings(int alarm, int s11, float s12,int s21, float s22,int s31, floa
       dataFile.find("s3 min. temp.");
       dataFile.seek(dataFile.position()+1);
       dataFile.print(s32);
+      dataFile.print(";");
+
+      dataFile.find("s4 alarm");
+      dataFile.seek(dataFile.position()+1);
+      dataFile.print(s41);
+      dataFile.print(";");
+  
+      dataFile.find("s4 min. temp.");
+      dataFile.seek(dataFile.position()+1);
+      dataFile.print(s42);
       dataFile.print(";");
     }
   } 
@@ -316,6 +340,11 @@ void setup(void) {
   node3.ku16MBResponseTimeout = 30;
   node3.preTransmission(preTransmission);
   node3.postTransmission(postTransmission);
+
+  node4.begin(4, Serial);
+  node4.ku16MBResponseTimeout = 30;
+  node4.preTransmission(preTransmission);
+  node4.postTransmission(postTransmission);
 }
 
 void loop(void) {  
@@ -331,6 +360,8 @@ void loop(void) {
     else if((float((int16_t)slave2[0]/10) < s2_minTemp && (s2_alarm > 0)) || (s2_timeout == true && (s2_alarm > 0)) )
       syrena = true;
     else if((float((int16_t)slave3[0]/10) < s3_minTemp && (s3_alarm > 0)) || (s3_timeout == true && (s3_alarm > 0)) )
+      syrena = true;
+    else if((float((int16_t)slave4[0]/10) < s4_minTemp && (s4_alarm > 0)) || (s4_timeout == true && (s4_alarm > 0)) )
       syrena = true;
     else syrena = false;
   }else syrena = false;
@@ -406,8 +437,29 @@ void loop(void) {
     else s3_timeout = false;
     delay(10);//musi tu byc maly delay, nie wiem dlaczego
 
+    node4.result = node4.readHoldingRegisters(0, 2);
+    if(node4.result == node4.ku8MBSuccess)
+    {
+        slave4[0] = node4.getResponseBuffer(0);
+        slave4[1] = node4.getResponseBuffer(1);
+        node4.responseTimeoutCount = 0;
+        
+        node4.writeSingleRegister(4, p_tm->tm_year + 1900);
+        node4.writeSingleRegister(5, p_tm->tm_mon + 1);
+        node4.writeSingleRegister(6, p_tm->tm_mday);
+        node4.writeSingleRegister(7, p_tm->tm_hour);
+        node4.writeSingleRegister(8, p_tm->tm_min);
+    }
+    else if(node4.result == node4.ku8MBResponseTimedOut)
+    {  
+      node4.responseTimeoutCount++;
+    }
+    if(node4.responseTimeoutCount > 10)
+      s4_timeout = true;
+    else s4_timeout = false;
+    delay(10);//musi tu byc maly delay, nie wiem dlaczego
     
-
+    
   if(KP2.Key_State() == PRESSED){
   key = KP2.Getkey();
     
@@ -507,50 +559,62 @@ void loop(void) {
     if(syrena == true)
       u8g2.print("ALARM");
        
-    u8g2.drawHLine(0, 26, 75);
-    u8g2.drawHLine(0, 37, 75);
-    u8g2.drawHLine(0, 48, 75);
-    u8g2.drawVLine(14, 17, 40);
-    u8g2.drawVLine(42, 17, 40);
-    u8g2.drawVLine(60, 17, 40);
+    u8g2.drawHLine(0, 21, 75);
+    u8g2.drawHLine(0, 32, 75);
+    u8g2.drawHLine(0, 43, 75);
+    u8g2.drawHLine(0, 54, 75);
+    u8g2.drawVLine(14, 12, 50);
+    u8g2.drawVLine(42, 12, 50);
+    u8g2.drawVLine(60, 12, 50);
   
-    u8g2.drawXBMP( 24, 15, c_width, c_height, c_bits);
-    u8g2.drawXBMP( 44, 14, sun_width, sun_height, sun_bits);
-    u8g2.drawXBMP( 64, 17, alarm_width, alarm_height, alarm_bits);
+    u8g2.drawXBMP( 24, 10, c_width, c_height, c_bits);
+    u8g2.drawXBMP( 44, 9, sun_width, sun_height, sun_bits);
+    u8g2.drawXBMP( 64, 12, alarm_width, alarm_height, alarm_bits);
        
-    u8g2.drawStr( 0, 35, "S1");
-    u8g2.drawStr( 0, 46, "S2");
-    u8g2.drawStr( 0, 57, "S3");
+    u8g2.drawStr( 0, 30, "S1");
+    u8g2.drawStr( 0, 41, "S2");
+    u8g2.drawStr( 0, 52, "S3");
+    u8g2.drawStr( 0, 63, "S4");
     
-    u8g2.setCursor( 17,35 );
+    u8g2.setCursor( 17,30 );
     u8g2.print(float((int16_t)slave1[0])/10, 1);
-    u8g2.setCursor( 45,35 );
+    u8g2.setCursor( 45,30 );
     u8g2.print(slave1[1]);
     if(s1_alarm > 0 && master_alarm > 0)
-      u8g2.drawXBMP( 63, 28, tick_width, tick_height, tick_bits);
-    else u8g2.drawXBMP( 63, 28, cross_width, cross_height, cross_bits);
+      u8g2.drawXBMP( 63, 23, tick_width, tick_height, tick_bits);
+    else u8g2.drawXBMP( 63, 23, cross_width, cross_height, cross_bits);
     if(s1_timeout == true)
-      u8g2.drawHLine(0, 31, 75);   
+      u8g2.drawHLine(0, 26, 75);   
 
-    u8g2.setCursor( 17,46 );
+    u8g2.setCursor( 17,41 );
     u8g2.print(float((int16_t)slave2[0])/10, 1);
-    u8g2.setCursor( 45,46 );
+    u8g2.setCursor( 45,41 );
     u8g2.print(slave2[1]);
     if(s2_alarm > 0 && master_alarm > 0)
-      u8g2.drawXBMP( 63, 39, tick_width, tick_height, tick_bits);
-    else u8g2.drawXBMP( 63, 39, cross_width, cross_height, cross_bits);
+      u8g2.drawXBMP( 63, 34, tick_width, tick_height, tick_bits);
+    else u8g2.drawXBMP( 63, 34, cross_width, cross_height, cross_bits);
     if(s2_timeout == true)
-      u8g2.drawHLine(0, 42, 75);
+      u8g2.drawHLine(0, 37, 75);
 
-    u8g2.setCursor( 17,57 );
+    u8g2.setCursor( 17,52 );
     u8g2.print(float((int16_t)slave3[0])/10, 1);
-    u8g2.setCursor( 45,57 );
+    u8g2.setCursor( 45,52 );
     u8g2.print(slave3[1]);
     if(s3_alarm > 0 && master_alarm > 0)
-      u8g2.drawXBMP( 63, 50, tick_width, tick_height, tick_bits);
-    else u8g2.drawXBMP( 63, 50, cross_width, cross_height, cross_bits);
+      u8g2.drawXBMP( 63, 45, tick_width, tick_height, tick_bits);
+    else u8g2.drawXBMP( 63, 45, cross_width, cross_height, cross_bits);
     if(s3_timeout == true)
-      u8g2.drawHLine(0, 53, 75); 
+      u8g2.drawHLine(0, 48, 75); 
+
+    u8g2.setCursor( 17,63 );
+    u8g2.print(float((int16_t)slave4[0])/10, 1);
+    u8g2.setCursor( 45,63 );
+    u8g2.print(slave4[1]);
+    if(s4_alarm > 0 && master_alarm > 0)
+      u8g2.drawXBMP( 63, 56, tick_width, tick_height, tick_bits);
+    else u8g2.drawXBMP( 63, 56, cross_width, cross_height, cross_bits);
+    if(s4_timeout == true)
+      u8g2.drawHLine(0, 59, 75); 
       
       
       
@@ -571,12 +635,14 @@ void loop(void) {
       goFrame(13);
     else if(pos == 4)
       goFrame(14);
+    else if(pos == 5)
+      goFrame(15);
   }
      
-    if(pos > 4) 
+    if(pos > 5) 
       pos = 1;/////////
     if(pos < 1)
-      pos = 4;/////////
+      pos = 5;/////////
     if(pos == 1)
       x = 17 ;
     else if(pos == 2)
@@ -585,6 +651,8 @@ void loop(void) {
       x = 39;
     else if(pos == 4)
       x = 50;
+    else if(pos == 5)
+      x = 61;
       
       u8g2.clearBuffer(); 
       u8g2.setFont(u8g2_font_6x12_mr);
@@ -606,6 +674,9 @@ void loop(void) {
 
       u8g2.setCursor(10, 59);
       u8g2.print("S3");
+
+      u8g2.setCursor(10, 70);
+      u8g2.print("S4");
       
   }
 
@@ -888,7 +959,83 @@ void loop(void) {
             u8g2.setCursor(10, 36);
             u8g2.print("min. temp");
         }
-  
+
+
+        if(frame == 15){
+          
+        if(ifBack() == true)
+            goFrame(1);
+            
+        if(ifPick() == true){
+          if(inputMode == true){
+            inputMode = false;
+            pos = inputPos;
+            
+            if(pos == 1){
+              s4_alarm = convertStrToInt(input);   ///////////////////       ZAPIS       ///////////////////
+              toSave = true;
+            }
+            if(pos == 2){
+              s4_minTemp = input.toFloat();   ///////////////////       ZAPIS       ///////////////////
+              toSave = true;
+            }
+              
+            input = "";
+          }
+          else{
+            inputMode = true;
+            inputPos = pos;
+          }
+        }
+      
+          if(inputMode == false){
+            if(pos > 2) 
+            pos = 1;/////////
+            if(pos < 1)
+              pos = 2;/////////
+            if(pos == 1)
+              x = 16 ;
+            else if(pos == 2)
+              x = 27;
+          }
+          
+            u8g2.clearBuffer(); 
+            u8g2.setFont(u8g2_font_6x12_mr);
+      
+              if(inputMode == true && inputPos == 1){
+                  u8g2.setCursor(120, 25);
+                  u8g2.print("#");
+                  u8g2.setCursor(70, 25);
+                  u8g2.print(input);
+              }
+              else{
+                u8g2.setCursor(70, 25);
+                u8g2.print(s4_alarm);
+              }
+              if(inputMode == true && inputPos == 2){
+                  u8g2.setCursor(120, 36);
+                  u8g2.print("#");
+                  u8g2.setCursor(70, 36);
+                  u8g2.print(input);
+              }
+              else{
+                u8g2.setCursor(70, 36);
+                u8g2.print(s4_minTemp);
+              }
+      
+            u8g2.setCursor(10, 11);
+            u8g2.print("       S4");
+            u8g2.drawHLine(0, 13, 128);
+            
+            u8g2.drawBox(0,x,128,11);
+          
+            u8g2.setCursor(10, 25);
+            u8g2.print("alarm");
+        
+            u8g2.setCursor(10, 36);
+            u8g2.print("min. temp");
+        }
+        
   if(frame == 2){
 
   clearPick();
@@ -937,6 +1084,11 @@ u8g2.sendBuffer();
         request += "&field5=" + String(float((int16_t)slave3[0])/10);
         request += "&field6=" + String(slave3[1]);
         }
+
+        if((int16_t)slave4[0] < 1000 && s4_timeout == false){
+        request += "&field7=" + String(float((int16_t)slave4[0])/10);
+        request += "&field8=" + String(slave4[1]);
+        }
         
         client.println(request);
         client.println();
@@ -945,7 +1097,7 @@ u8g2.sendBuffer();
     }
 
   if(loadResult == true && toSave == true){
-    SaveSettings(master_alarm, s1_alarm, s1_minTemp,s2_alarm, s2_minTemp,s3_alarm, s3_minTemp);
+    SaveSettings(master_alarm, s1_alarm, s1_minTemp,s2_alarm, s2_minTemp, s3_alarm, s3_minTemp, s4_alarm, s4_minTemp);
   }
   
 }
